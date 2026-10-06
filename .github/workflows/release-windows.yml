@@ -1,0 +1,120 @@
+name: Windows release
+
+# Builds the mlwatcher Windows app and publishes it as a password-protected,
+# AES-256 encrypted 7z archive (file names are encrypted too).
+#
+# Required repository secret:
+#   RELEASE_ARCHIVE_PASSWORD  – password used to encrypt the archive.
+#
+# Triggers:
+#   - manual run (Actions tab → "Windows release" → Run workflow)
+#   - any push (artifact available on the run page for 14 days)
+#   - tags v* (additionally attached to a GitHub Release)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    paths-ignore: ['**.md']
+
+permissions:
+  contents: write # needed only to create a GitHub Release for tags
+
+concurrency:
+  group: mlwatcher-windows-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.47.6'
+
+jobs:
+  test:
+    name: Analyze & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter config --no-analytics
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+  build-windows:
+    name: Build Windows x64
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Build
+        run: |
+          flutter config --no-analytics
+          flutter pub get
+          flutter build windows --release
+
+      - name: Smoke-check build output
+        shell: pwsh
+        run: |
+          $out = "build\windows\x64\runner\Release"
+          Get-ChildItem $out
+          if (-not (Test-Path "$out\mlwatcher.exe")) { throw "mlwatcher.exe was not produced" }
+
+      - name: Package encrypted archive
+        shell: pwsh
+        env:
+          ARCHIVE_PASSWORD: ${{ secrets.RELEASE_ARCHIVE_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrEmpty($env:ARCHIVE_PASSWORD)) {
+            throw "Repository secret RELEASE_ARCHIVE_PASSWORD is not set (Settings → Secrets and variables → Actions)."
+          }
+          $version = (Select-String -Path pubspec.yaml -Pattern '^version:\s*(\S+)').Matches[0].Groups[1].Value
+          $sha = "${{ github.sha }}".Substring(0, 7)
+          $name = "mlwatcher-windows-x64-$version-$sha"
+          New-Item -ItemType Directory -Force dist | Out-Null
+          # Stage as a folder named like the archive so it extracts cleanly.
+          Copy-Item -Recurse "build\windows\x64\runner\Release" "dist\$name"
+          @"
+          mlwatcher $version ($sha) for Windows x64
+          1. Extract this archive anywhere you can write to (no admin rights needed).
+          2. Run mlwatcher.exe. Keep the whole folder together (DLLs and data\ are required).
+          mlwatcher lives in the notification area (bottom right); right-click its icon for Settings.
+          Settings are stored in %APPDATA%\mlwatcher\mlwatcher\.
+          "@ | Set-Content "dist\$name\README.txt"
+          Push-Location dist
+          # -mhe=on encrypts file names; AES-256 is 7z's default cipher.
+          7z a -t7z -mx=9 -mhe=on "-p$env:ARCHIVE_PASSWORD" "$name.7z" "$name" | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "7z failed" }
+          # Verify the archive opens with the password and is intact.
+          7z t "-p$env:ARCHIVE_PASSWORD" "$name.7z" | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "archive verification failed" }
+          (Get-FileHash "$name.7z" -Algorithm SHA256).Hash.ToLower() + "  $name.7z" | Set-Content "$name.7z.sha256"
+          Remove-Item -Recurse "$name"
+          Pop-Location
+          "ARCHIVE_NAME=$name" | Out-File -Append $env:GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: ${{ env.ARCHIVE_NAME }}
+          path: dist/*
+          retention-days: 14
+          # Already compressed and encrypted; don't re-zip pointlessly.
+          compression-level: 0
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

@@ -1,0 +1,20 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - build/**
+    - windows/**
+    - linux/**
+  language:
+    strict-casts: true
+
+linter:
+  rules:
+    prefer_initializing_formals: false
+    prefer_single_quotes: true
+    avoid_print: true
+    unawaited_futures: false
+
+formatter:
+  page_width: 120
