@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:tray_manager/tray_manager.dart';
@@ -21,7 +22,7 @@ class Shell with WindowListener, TrayListener {
   final mode = ValueNotifier(ShellMode.overlay);
 
   static const overlayDefaultSize = Size(260, 180);
-  static const overlayMinSize = Size(160, 60);
+  static const overlayMinSize = Size(160, 40);
   static const settingsSize = Size(480, 680);
 
   bool _visible = false;
@@ -80,6 +81,23 @@ class Shell with WindowListener, TrayListener {
     await windowManager.hide();
     _visible = false;
     await _rememberVisible(false);
+  }
+
+  /// Fits the overlay to [height] (what its runs need), keeping the top edge
+  /// and the width. Called when the content changes: the overlay shrinks when
+  /// it is taller, and grows only with `autoGrowOverlay` (at most to the
+  /// screen height).
+  Future<void> fitOverlay(double height) async {
+    if (mode.value != ShellMode.overlay) return;
+    var h = max(height.ceilToDouble(), overlayMinSize.height);
+    final b = await windowManager.getBounds();
+    if (h > b.height) {
+      if (!service.settings.autoGrowOverlay) return;
+      final display = WidgetsBinding.instance.platformDispatcher.views.first.display;
+      h = min(h, display.size.height / display.devicePixelRatio);
+    }
+    if ((h - b.height).abs() < 1) return;
+    await windowManager.setBounds(Rect.fromLTWH(b.left, b.top, b.width, h));
   }
 
   Future<void> toggleOverlay() => _visible && mode.value == ShellMode.overlay ? hideOverlay() : showOverlay();

@@ -37,6 +37,7 @@ class _SettingsViewState extends State<SettingsView> {
   late bool _untrusted = _initial.allowUntrustedCertificate;
   late int _opacity = _initial.opacityPercent;
   late bool _onTop = _initial.alwaysOnTop;
+  late bool _autoGrow = _initial.autoGrowOverlay;
   late bool _notifyFailure = _initial.notifyOnFailure;
   late bool _notifyFinish = _initial.notifyOnFinish;
   bool? _autostart;
@@ -80,6 +81,7 @@ class _SettingsViewState extends State<SettingsView> {
       staleMinutes: (int.tryParse(_stale.text.trim()) ?? _initial.staleMinutes).clamp(1, 10000),
       opacityPercent: _opacity,
       alwaysOnTop: _onTop,
+      autoGrowOverlay: _autoGrow,
       notifyOnFailure: _notifyFailure,
       notifyOnFinish: _notifyFinish,
     );
@@ -238,6 +240,12 @@ class _SettingsViewState extends State<SettingsView> {
                   ],
                 ),
                 _check('Always on top', _onTop, (v) => setState(() => _onTop = v)),
+                _check(
+                  'Grow automatically with the runs',
+                  _autoGrow,
+                  (v) => setState(() => _autoGrow = v),
+                  subtitle: 'It always shrinks when there are fewer runs',
+                ),
                 _section('Notifications'),
                 _check('When a run fails or is killed', _notifyFailure, (v) => setState(() => _notifyFailure = v)),
                 _check('When a run finishes', _notifyFinish, (v) => setState(() => _notifyFinish = v)),

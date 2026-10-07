@@ -66,8 +66,12 @@ void main() {
     expect(notifier.shown, ['Run failed: run-a']);
     expect(s.hasUndismissedFailure, isTrue);
 
-    // Survives a restart.
-    final (runs, _) = await JsonStore(dir).loadState();
+    // Survives a restart. The state is saved in the background: wait for it.
+    var (runs, _) = await JsonStore(dir).loadState();
+    for (var i = 0; runs.isEmpty && i < 100; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      (runs, _) = await JsonStore(dir).loadState();
+    }
     expect(runs.single.id, 'a');
     s.dispose();
   });
@@ -141,6 +145,50 @@ void main() {
     await tester.pump();
     expect(find.text('run-a'), findsNothing);
     expect(find.textContaining('Cannot reach server'), findsOneWidget);
+    s.dispose();
+  });
+
+  testWidgets('overlay reports the height of its runs, not of transient messages', (tester) async {
+    late WatcherService s;
+    await tester.runAsync(() async {
+      for (final id in ['a', 'b', 'c']) {
+        server.add(FakeRun(id, startTime: now() - 60000));
+      }
+      s = await service();
+      await pollNow(s);
+    });
+    final heights = <double>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(),
+        home: OverlayView(
+          service: s,
+          onToggleOnTop: () {},
+          onHide: () {},
+          onOpenSettings: () {},
+          onContentHeight: heights.add,
+          resizable: false,
+        ),
+      ),
+    );
+    await tester.pump();
+    final rowHeight = tester.getSize(find.byType(RunRow).first).height;
+    expect(heights.last, moreOrLessEquals(20 + 4 + 3 * rowHeight));
+
+    s.dismiss('c');
+    await tester.pump();
+    await tester.pump();
+    expect(heights.last, moreOrLessEquals(20 + 4 + 2 * rowHeight));
+
+    final reported = heights.length;
+    await tester.runAsync(() async {
+      server.down = true;
+      await pollNow(s);
+    });
+    await tester.pump();
+    await tester.pump();
+    expect(find.textContaining('Cannot reach server'), findsOneWidget);
+    expect(heights, hasLength(reported));
     s.dispose();
   });
 }

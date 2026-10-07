@@ -9,7 +9,7 @@ abstract final class OverlayColors {
   static const accent = Color(0xFF78C8FF);
   static const running = Color(0xFF3DDC84);
   static const stale = Color(0xFFFFA726);
-  static const finished = Color(0xFF8C95A3);
+  static const finished = Color(0xFF42A5F5);
   static const failed = Color(0xFFEF5350);
 }
 
