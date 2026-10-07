@@ -66,8 +66,12 @@ void main() {
     expect(notifier.shown, ['Run failed: run-a']);
     expect(s.hasUndismissedFailure, isTrue);
 
-    // Survives a restart.
-    final (runs, _) = await JsonStore(dir).loadState();
+    // Survives a restart. The state is saved in the background: wait for it.
+    var (runs, _) = await JsonStore(dir).loadState();
+    for (var i = 0; runs.isEmpty && i < 100; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      (runs, _) = await JsonStore(dir).loadState();
+    }
     expect(runs.single.id, 'a');
     s.dispose();
   });
