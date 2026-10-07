@@ -83,14 +83,14 @@ class Shell with WindowListener, TrayListener {
     await _rememberVisible(false);
   }
 
-  /// Sets the overlay height to [height] (what its content needs), keeping
-  /// the top edge and the width. Called when the content changes, so a height
-  /// set by hand stays until the next change.
-  Future<void> fitOverlayHeight(double height) async {
+  /// Shrinks the overlay to [height] (what its content needs) when it is
+  /// taller, keeping the top edge and the width. Called when the content
+  /// changes; the overlay never grows by itself, only by hand.
+  Future<void> shrinkOverlayToFit(double height) async {
     if (mode.value != ShellMode.overlay) return;
     final h = max(height.ceilToDouble(), overlayMinSize.height);
     final b = await windowManager.getBounds();
-    if ((b.height - h).abs() < 1) return;
+    if (h >= b.height - 1) return;
     await windowManager.setBounds(Rect.fromLTWH(b.left, b.top, b.width, h));
   }
 

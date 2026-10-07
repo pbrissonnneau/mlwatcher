@@ -17,7 +17,6 @@ class Settings {
     this.staleMinutes = 30,
     this.opacityPercent = 90,
     this.alwaysOnTop = true,
-    this.maxVisibleRuns = 10,
     this.overlayVisible = true,
     this.notifyOnFinish = true,
     this.notifyOnFailure = true,
@@ -43,10 +42,6 @@ class Settings {
 
   final int opacityPercent;
   final bool alwaysOnTop;
-
-  /// The overlay grows with the number of runs up to this many lines, then scrolls.
-  final int maxVisibleRuns;
-
   final bool overlayVisible;
   final bool notifyOnFinish;
   final bool notifyOnFailure;
@@ -66,7 +61,6 @@ class Settings {
     int? staleMinutes,
     int? opacityPercent,
     bool? alwaysOnTop,
-    int? maxVisibleRuns,
     bool? overlayVisible,
     bool? notifyOnFinish,
     bool? notifyOnFailure,
@@ -83,7 +77,6 @@ class Settings {
     staleMinutes: staleMinutes ?? this.staleMinutes,
     opacityPercent: opacityPercent ?? this.opacityPercent,
     alwaysOnTop: alwaysOnTop ?? this.alwaysOnTop,
-    maxVisibleRuns: maxVisibleRuns ?? this.maxVisibleRuns,
     overlayVisible: overlayVisible ?? this.overlayVisible,
     notifyOnFinish: notifyOnFinish ?? this.notifyOnFinish,
     notifyOnFailure: notifyOnFailure ?? this.notifyOnFailure,
@@ -113,7 +106,6 @@ class Settings {
     'staleMinutes': staleMinutes,
     'opacityPercent': opacityPercent,
     'alwaysOnTop': alwaysOnTop,
-    'maxVisibleRuns': maxVisibleRuns,
     'overlayVisible': overlayVisible,
     'notifyOnFinish': notifyOnFinish,
     'notifyOnFailure': notifyOnFailure,
@@ -147,7 +139,6 @@ class Settings {
       staleMinutes: read<num>('staleMinutes', d.staleMinutes).toInt().clamp(1, 10000),
       opacityPercent: read<num>('opacityPercent', d.opacityPercent).toInt().clamp(20, 100),
       alwaysOnTop: read('alwaysOnTop', d.alwaysOnTop),
-      maxVisibleRuns: read<num>('maxVisibleRuns', d.maxVisibleRuns).toInt().clamp(1, 100),
       overlayVisible: read('overlayVisible', d.overlayVisible),
       notifyOnFinish: read('notifyOnFinish', d.notifyOnFinish),
       notifyOnFailure: read('notifyOnFailure', d.notifyOnFailure),

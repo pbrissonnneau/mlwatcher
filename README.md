@@ -11,8 +11,8 @@ shows your runs at a glance. Built with Flutter.
   overlay, right-click for *Settings…* and *Quit*. The icon turns red while a failure is shown or the server is
   unreachable.
 - Overlay header: 📌 toggles *always on top*, `–` hides the overlay. Drag the header to move it, drag the edges to
-  resize it; position, size and opacity are remembered. The height follows the number of runs (the top edge stays
-  put); a height set by hand holds until the list changes.
+  resize it; position, size and opacity are remembered. When runs go away the overlay shrinks to fit them (the top
+  edge stays put); it never grows by itself.
 - Desktop notifications when a run fails / is killed / finishes (each can be turned off).
 - Optional start at login (per user, no admin rights).
 
@@ -37,7 +37,6 @@ shows your runs at a glance. Built with Flutter.
 | Total epochs parameter | `epochs` | parameter holding the number of epochs (no bar when missing) |
 | Orange after | 30 min | a running run with no new metric for this long is shown orange |
 | Opacity, always on top | 90 %, on | |
-| Lines before scrolling | 10 | the overlay height follows the number of runs up to this many lines, then the list scrolls |
 | Notifications | on | on failure/kill, on finish |
 | Start when I log in | off | Windows: `HKCU\…\Run`; enable again if you move the folder |
 

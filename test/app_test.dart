@@ -147,13 +147,14 @@ void main() {
     expect(find.textContaining('Cannot reach server'), findsOneWidget);
     s.dispose();
   });
-  testWidgets('overlay reports the height of its first lines', (tester) async {
+
+  testWidgets('overlay reports the height of its runs, not of transient messages', (tester) async {
     late WatcherService s;
     await tester.runAsync(() async {
       for (final id in ['a', 'b', 'c']) {
         server.add(FakeRun(id, startTime: now() - 60000));
       }
-      s = await service(settings: const Settings(serverUrl: 'http://mlflow.test', maxVisibleRuns: 2));
+      s = await service();
       await pollNow(s);
     });
     final heights = <double>[];
@@ -172,20 +173,22 @@ void main() {
     );
     await tester.pump();
     final rowHeight = tester.getSize(find.byType(RunRow).first).height;
-    expect(heights.last, moreOrLessEquals(20 + 4 + 2 * rowHeight));
-
-    await tester.runAsync(() => s.updateDisplay(s.settings.copyWith(maxVisibleRuns: 10)));
-    await tester.pump();
-    await tester.pump();
     expect(heights.last, moreOrLessEquals(20 + 4 + 3 * rowHeight));
 
+    s.dismiss('c');
+    await tester.pump();
+    await tester.pump();
+    expect(heights.last, moreOrLessEquals(20 + 4 + 2 * rowHeight));
+
+    final reported = heights.length;
     await tester.runAsync(() async {
       server.down = true;
       await pollNow(s);
     });
     await tester.pump();
     await tester.pump();
-    expect(heights.last, lessThan(20 + 4 + 2 * rowHeight));
+    expect(find.textContaining('Cannot reach server'), findsOneWidget);
+    expect(heights, hasLength(reported));
     s.dispose();
   });
 }

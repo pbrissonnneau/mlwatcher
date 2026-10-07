@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:window_manager/window_manager.dart';
@@ -12,8 +10,7 @@ import 'theme.dart';
 
 /// The compact overlay: a header (drag to move, pin, hide) and one line per run.
 ///
-/// Reports through [onContentHeight] the window height that fits its content:
-/// every run up to `maxVisibleRuns` lines, beyond which the list scrolls.
+/// Reports through [onContentHeight] the window height that fits its runs.
 class OverlayView extends StatelessWidget {
   const OverlayView({
     super.key,
@@ -59,8 +56,10 @@ class OverlayView extends StatelessWidget {
 
   void _reportBody(double height) => onContentHeight?.call(_headerHeight + height);
 
-  Widget _message(_Message message) => SingleChildScrollView(
-    child: _HeightReporter(onHeight: _reportBody, child: message),
+  /// Only the run list (or its absence) sizes the window: a transient message
+  /// such as *Connecting…* or a server error must not shrink it.
+  Widget _message(_Message message, {bool fit = false}) => SingleChildScrollView(
+    child: fit ? _HeightReporter(onHeight: _reportBody, child: message) : message,
   );
 
   Widget _body(BuildContext context) {
@@ -79,31 +78,25 @@ class OverlayView extends StatelessWidget {
     }
     if (service.loading) return _message(const _Message(text: 'Connecting…', color: OverlayColors.dim));
     final runs = service.runs;
-    if (runs.isEmpty) return _message(const _Message(text: 'No runs', color: OverlayColors.dim));
+    if (runs.isEmpty) return _message(const _Message(text: 'No runs', color: OverlayColors.dim), fit: true);
     final now = DateTime.now();
-    Widget row(WatchedRun run) => RunRow(
-      run: run,
-      indicator: run.indicator(now, service.staleAfter),
-      now: now,
-      onOpen: () => service.openRun(run),
-      onDismiss: () => service.dismiss(run.id),
-    );
-    // Only the first lines are measured: the window fits them, the rest scrolls.
-    final fitted = min(runs.length, service.settings.maxVisibleRuns);
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: _listPadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _HeightReporter(
-            onHeight: (h) => _reportBody(h + 2 * _listPadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [for (final run in runs.take(fitted)) row(run)],
-            ),
-          ),
-          for (final run in runs.skip(fitted)) row(run),
-        ],
+      child: _HeightReporter(
+        onHeight: (h) => _reportBody(h + 2 * _listPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final run in runs)
+              RunRow(
+                run: run,
+                indicator: run.indicator(now, service.staleAfter),
+                now: now,
+                onOpen: () => service.openRun(run),
+                onDismiss: () => service.dismiss(run.id),
+              ),
+          ],
+        ),
       ),
     );
   }

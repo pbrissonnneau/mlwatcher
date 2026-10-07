@@ -33,7 +33,6 @@ class _SettingsViewState extends State<SettingsView> {
   late final _epochMetric = TextEditingController(text: _initial.epochMetric);
   late final _totalParam = TextEditingController(text: _initial.totalEpochsParam);
   late final _stale = TextEditingController(text: '${_initial.staleMinutes}');
-  late final _maxRuns = TextEditingController(text: '${_initial.maxVisibleRuns}');
   late AuthMode _auth = _initial.authMode;
   late bool _untrusted = _initial.allowUntrustedCertificate;
   late int _opacity = _initial.opacityPercent;
@@ -58,7 +57,7 @@ class _SettingsViewState extends State<SettingsView> {
 
   @override
   void dispose() {
-    for (final c in [_url, _username, _secret, _experiments, _user, _epochMetric, _totalParam, _stale, _maxRuns]) {
+    for (final c in [_url, _username, _secret, _experiments, _user, _epochMetric, _totalParam, _stale]) {
       c.dispose();
     }
     super.dispose();
@@ -80,7 +79,6 @@ class _SettingsViewState extends State<SettingsView> {
       totalEpochsParam: orDefault(_totalParam, 'epochs'),
       staleMinutes: (int.tryParse(_stale.text.trim()) ?? _initial.staleMinutes).clamp(1, 10000),
       opacityPercent: _opacity,
-      maxVisibleRuns: (int.tryParse(_maxRuns.text.trim()) ?? _initial.maxVisibleRuns).clamp(1, 100),
       alwaysOnTop: _onTop,
       notifyOnFailure: _notifyFailure,
       notifyOnFinish: _notifyFinish,
@@ -240,13 +238,6 @@ class _SettingsViewState extends State<SettingsView> {
                   ],
                 ),
                 _check('Always on top', _onTop, (v) => setState(() => _onTop = v)),
-                const SizedBox(height: 6),
-                _field(
-                  _maxRuns,
-                  'Lines before scrolling',
-                  helper: 'The overlay grows with the runs up to this many lines',
-                  number: true,
-                ),
                 _section('Notifications'),
                 _check('When a run fails or is killed', _notifyFailure, (v) => setState(() => _notifyFailure = v)),
                 _check('When a run finishes', _notifyFinish, (v) => setState(() => _notifyFinish = v)),
