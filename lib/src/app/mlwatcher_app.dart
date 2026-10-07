@@ -28,6 +28,7 @@ class MlwatcherApp extends StatelessWidget {
             onToggleOnTop: () => unawaited(shell.toggleAlwaysOnTop()),
             onHide: () => unawaited(shell.hideOverlay()),
             onOpenSettings: () => unawaited(shell.openSettings()),
+            onContentHeight: (h) => unawaited(shell.fitOverlayHeight(h)),
           ),
           ShellMode.settings => SettingsView(
             service: service,

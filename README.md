@@ -4,14 +4,15 @@ A tiny always-available overlay for **Windows** (and Linux) that watches a self-
 shows your runs at a glance. Built with Flutter.
 
 - One line per run: status dot, run name, `epoch/total`, and a 2-pixel progress bar underneath.
-  - 🟢 running · 🟠 running but no new metric for a while (stale, default 30 min) · 🔴 failed or killed · ✓ finished
+  - 🟢 running · 🟠 running but no new metric for a while (stale, default 30 min) · 🔴 failed or killed · blue ✓ finished
 - A run stays until you **right-click → Dismiss** it. **Click** a run to open it in the MLflow web UI.
   Hover for the experiment name, status and duration.
 - No main window: mlwatcher lives in the **notification area** (bottom right). Left-click the icon to show/hide the
   overlay, right-click for *Settings…* and *Quit*. The icon turns red while a failure is shown or the server is
   unreachable.
 - Overlay header: 📌 toggles *always on top*, `–` hides the overlay. Drag the header to move it, drag the edges to
-  resize it; position, size and opacity are remembered.
+  resize it; position, size and opacity are remembered. The height follows the number of runs (the top edge stays
+  put); a height set by hand holds until the list changes.
 - Desktop notifications when a run fails / is killed / finishes (each can be turned off).
 - Optional start at login (per user, no admin rights).
 
@@ -36,6 +37,7 @@ shows your runs at a glance. Built with Flutter.
 | Total epochs parameter | `epochs` | parameter holding the number of epochs (no bar when missing) |
 | Orange after | 30 min | a running run with no new metric for this long is shown orange |
 | Opacity, always on top | 90 %, on | |
+| Lines before scrolling | 10 | the overlay height follows the number of runs up to this many lines, then the list scrolls |
 | Notifications | on | on failure/kill, on finish |
 | Start when I log in | off | Windows: `HKCU\…\Run`; enable again if you move the folder |
 

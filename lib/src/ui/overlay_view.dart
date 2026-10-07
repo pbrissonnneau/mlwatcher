@@ -1,4 +1,7 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../app/watcher_service.dart';
@@ -8,6 +11,9 @@ import 'format.dart';
 import 'theme.dart';
 
 /// The compact overlay: a header (drag to move, pin, hide) and one line per run.
+///
+/// Reports through [onContentHeight] the window height that fits its content:
+/// every run up to `maxVisibleRuns` lines, beyond which the list scrolls.
 class OverlayView extends StatelessWidget {
   const OverlayView({
     super.key,
@@ -15,6 +21,7 @@ class OverlayView extends StatelessWidget {
     required this.onToggleOnTop,
     required this.onHide,
     required this.onOpenSettings,
+    this.onContentHeight,
     this.resizable = true,
   });
 
@@ -22,6 +29,12 @@ class OverlayView extends StatelessWidget {
   final VoidCallback onToggleOnTop;
   final VoidCallback onHide;
   final VoidCallback onOpenSettings;
+
+  /// Called with the height the window needs, whenever it changes.
+  final ValueChanged<double>? onContentHeight;
+
+  static const _headerHeight = 20.0;
+  static const _listPadding = 2.0;
 
   /// False in tests (no native window).
   final bool resizable;
@@ -44,33 +57,85 @@ class OverlayView extends StatelessWidget {
     return resizable ? DragToResizeArea(resizeEdgeSize: 5, child: content) : content;
   }
 
+  void _reportBody(double height) => onContentHeight?.call(_headerHeight + height);
+
+  Widget _message(_Message message) => SingleChildScrollView(
+    child: _HeightReporter(onHeight: _reportBody, child: message),
+  );
+
   Widget _body(BuildContext context) {
     if (!service.settings.isConfigured) {
-      return _Message(
-        icon: Icons.settings,
-        text: 'Set the MLflow server in Settings',
-        color: OverlayColors.dim,
-        onTap: onOpenSettings,
+      return _message(
+        _Message(
+          icon: Icons.settings,
+          text: 'Set the MLflow server in Settings',
+          color: OverlayColors.dim,
+          onTap: onOpenSettings,
+        ),
       );
     }
     if (service.error case final error?) {
-      return _Message(icon: Icons.warning_amber_rounded, text: error, color: OverlayColors.failed);
+      return _message(_Message(icon: Icons.warning_amber_rounded, text: error, color: OverlayColors.failed));
     }
-    if (service.loading) return const _Message(text: 'Connecting…', color: OverlayColors.dim);
+    if (service.loading) return _message(const _Message(text: 'Connecting…', color: OverlayColors.dim));
     final runs = service.runs;
-    if (runs.isEmpty) return const _Message(text: 'No runs', color: OverlayColors.dim);
+    if (runs.isEmpty) return _message(const _Message(text: 'No runs', color: OverlayColors.dim));
     final now = DateTime.now();
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      itemCount: runs.length,
-      itemBuilder: (context, i) => RunRow(
-        run: runs[i],
-        indicator: runs[i].indicator(now, service.staleAfter),
-        now: now,
-        onOpen: () => service.openRun(runs[i]),
-        onDismiss: () => service.dismiss(runs[i].id),
+    Widget row(WatchedRun run) => RunRow(
+      run: run,
+      indicator: run.indicator(now, service.staleAfter),
+      now: now,
+      onOpen: () => service.openRun(run),
+      onDismiss: () => service.dismiss(run.id),
+    );
+    // Only the first lines are measured: the window fits them, the rest scrolls.
+    final fitted = min(runs.length, service.settings.maxVisibleRuns);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: _listPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _HeightReporter(
+            onHeight: (h) => _reportBody(h + 2 * _listPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [for (final run in runs.take(fitted)) row(run)],
+            ),
+          ),
+          for (final run in runs.skip(fitted)) row(run),
+        ],
       ),
     );
+  }
+}
+
+/// Calls [onHeight] after a layout that changed its child's height.
+class _HeightReporter extends SingleChildRenderObjectWidget {
+  const _HeightReporter({required this.onHeight, super.child});
+
+  final ValueChanged<double> onHeight;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderHeightReporter(onHeight);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderHeightReporter renderObject) => renderObject.onHeight = onHeight;
+}
+
+class _RenderHeightReporter extends RenderProxyBox {
+  _RenderHeightReporter(this.onHeight);
+
+  ValueChanged<double> onHeight;
+  double? _reported;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final height = size.height;
+    if (height == _reported) return;
+    _reported = height;
+    // Resizing the window during layout would re-enter it.
+    WidgetsBinding.instance.addPostFrameCallback((_) => onHeight(height));
   }
 }
 
@@ -91,7 +156,7 @@ class _Header extends StatelessWidget {
       ),
     );
     return Container(
-      height: 20,
+      height: OverlayView._headerHeight,
       color: OverlayColors.header,
       child: Row(
         children: [

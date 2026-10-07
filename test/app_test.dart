@@ -143,4 +143,45 @@ void main() {
     expect(find.textContaining('Cannot reach server'), findsOneWidget);
     s.dispose();
   });
+  testWidgets('overlay reports the height of its first lines', (tester) async {
+    late WatcherService s;
+    await tester.runAsync(() async {
+      for (final id in ['a', 'b', 'c']) {
+        server.add(FakeRun(id, startTime: now() - 60000));
+      }
+      s = await service(settings: const Settings(serverUrl: 'http://mlflow.test', maxVisibleRuns: 2));
+      await pollNow(s);
+    });
+    final heights = <double>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(),
+        home: OverlayView(
+          service: s,
+          onToggleOnTop: () {},
+          onHide: () {},
+          onOpenSettings: () {},
+          onContentHeight: heights.add,
+          resizable: false,
+        ),
+      ),
+    );
+    await tester.pump();
+    final rowHeight = tester.getSize(find.byType(RunRow).first).height;
+    expect(heights.last, moreOrLessEquals(20 + 4 + 2 * rowHeight));
+
+    await tester.runAsync(() => s.updateDisplay(s.settings.copyWith(maxVisibleRuns: 10)));
+    await tester.pump();
+    await tester.pump();
+    expect(heights.last, moreOrLessEquals(20 + 4 + 3 * rowHeight));
+
+    await tester.runAsync(() async {
+      server.down = true;
+      await pollNow(s);
+    });
+    await tester.pump();
+    await tester.pump();
+    expect(heights.last, lessThan(20 + 4 + 2 * rowHeight));
+    s.dispose();
+  });
 }

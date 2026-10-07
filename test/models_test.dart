@@ -167,12 +167,18 @@ void main() {
       staleMinutes: 12,
       opacityPercent: 70,
       alwaysOnTop: false,
+      maxVisibleRuns: 4,
       overlayBounds: Rect.fromLTWH(10, 20, 300, 200),
     );
     final back = Settings.fromJson(jsonDecode(jsonEncode(s.toJson())) as Map<String, Object?>);
     expect(back.toJson(), s.toJson());
-    final garbage = Settings.fromJson({'authMode': 'zzz', 'opacityPercent': 5, 'experimentNames': 'x'});
-    expect((garbage.authMode, garbage.opacityPercent), (AuthMode.none, 20));
+    final garbage = Settings.fromJson({
+      'authMode': 'zzz',
+      'opacityPercent': 5,
+      'experimentNames': 'x',
+      'maxVisibleRuns': 0,
+    });
+    expect((garbage.authMode, garbage.opacityPercent, garbage.maxVisibleRuns), (AuthMode.none, 20, 1));
     expect(garbage.experimentNames, isEmpty);
   });
 
