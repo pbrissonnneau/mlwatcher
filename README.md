@@ -12,7 +12,7 @@ shows your runs at a glance. Built with Flutter.
   unreachable.
 - Overlay header: 📌 toggles *always on top*, `–` hides the overlay. Drag the header to move it, drag the edges to
   resize it; position, size and opacity are remembered. When runs go away the overlay shrinks to fit them (the top
-  edge stays put); it never grows by itself.
+  edge stays put); it grows by itself only if *Grow automatically* is on.
 - Desktop notifications when a run fails / is killed / finishes (each can be turned off).
 - Optional start at login (per user, no admin rights).
 
@@ -37,6 +37,7 @@ shows your runs at a glance. Built with Flutter.
 | Total epochs parameter | `epochs` | parameter holding the number of epochs (no bar when missing) |
 | Orange after | 30 min | a running run with no new metric for this long is shown orange |
 | Opacity, always on top | 90 %, on | |
+| Grow automatically with the runs | off | the overlay always shrinks to fit fewer runs; with this it also grows, up to the screen height |
 | Notifications | on | on failure/kill, on finish |
 | Start when I log in | off | Windows: `HKCU\…\Run`; enable again if you move the folder |
 

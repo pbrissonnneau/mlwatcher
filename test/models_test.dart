@@ -167,6 +167,7 @@ void main() {
       staleMinutes: 12,
       opacityPercent: 70,
       alwaysOnTop: false,
+      autoGrowOverlay: true,
       overlayBounds: Rect.fromLTWH(10, 20, 300, 200),
     );
     final back = Settings.fromJson(jsonDecode(jsonEncode(s.toJson())) as Map<String, Object?>);
