@@ -18,19 +18,26 @@ class WatcherService extends ChangeNotifier {
   WatcherService({
     required this.store,
     required this.secrets,
+    SecretStore? certPasswords,
     this.notifier,
     this.pollInterval = const Duration(seconds: 2),
     MlflowClient Function(MlflowConnection)? clientFactory,
-  }) : _clientFactory = clientFactory ?? MlflowClient.new;
+  }) : certPasswords = certPasswords ?? SecretStore(secrets.dir, name: 'client-cert-password'),
+       _clientFactory = clientFactory ?? MlflowClient.new;
 
   final JsonStore store;
   final SecretStore secrets;
+
+  /// The client certificate's password.
+  final SecretStore certPasswords;
+
   final Notifier? notifier;
   final Duration pollInterval;
   final MlflowClient Function(MlflowConnection) _clientFactory;
 
   Settings _settings = const Settings();
   String _secret = '';
+  String _certPassword = '';
   MlflowClient? _client;
   RunTracker? _tracker;
   String? _error;
@@ -42,6 +49,7 @@ class WatcherService extends ChangeNotifier {
 
   Settings get settings => _settings;
   String get secret => _secret;
+  String get certPassword => _certPassword;
 
   /// Last polling error; while set, no run is shown (they may be outdated).
   String? get error => _error;
@@ -56,19 +64,22 @@ class WatcherService extends ChangeNotifier {
 
   Duration get staleAfter => Duration(minutes: _settings.staleMinutes);
 
-  MlflowConnection get connection => _connectionFor(_settings, _secret);
+  MlflowConnection get connection => _connectionFor(_settings, _secret, _certPassword);
 
-  static MlflowConnection _connectionFor(Settings s, String secret) => MlflowConnection(
+  static MlflowConnection _connectionFor(Settings s, String secret, String certPassword) => MlflowConnection(
     baseUrl: s.serverUrl,
     authMode: s.authMode,
     username: s.username,
     secret: secret,
     allowUntrustedCertificate: s.allowUntrustedCertificate,
+    clientCertificatePath: s.clientCertificatePath.trim(),
+    clientCertificatePassword: s.clientCertificatePath.trim().isEmpty ? '' : certPassword,
   );
 
   Future<void> load() async {
     _settings = await store.loadSettings();
     _secret = await secrets.read();
+    _certPassword = await certPasswords.read();
     final (runs, dismissed) = await store.loadState();
     _rebuildTracker(runs: runs, dismissed: dismissed);
   }
@@ -85,13 +96,19 @@ class WatcherService extends ChangeNotifier {
   }
 
   /// Saves settings from the settings window and reconnects if needed.
-  Future<void> applySettings(Settings s, String secret) async {
-    final reconnect = s.watchesDifferentlyThan(_settings) || secret != _secret;
+  /// A null [certPassword] keeps the stored one.
+  Future<void> applySettings(Settings s, String secret, {String? certPassword}) async {
+    certPassword ??= _certPassword;
+    final reconnect = s.watchesDifferentlyThan(_settings) || secret != _secret || certPassword != _certPassword;
     _settings = s;
     await store.saveSettings(s);
     if (secret != _secret) {
       _secret = secret;
       await secrets.write(secret);
+    }
+    if (certPassword != _certPassword) {
+      _certPassword = certPassword;
+      await certPasswords.write(certPassword);
     }
     if (reconnect) {
       final t = _tracker;
@@ -103,8 +120,8 @@ class WatcherService extends ChangeNotifier {
   }
 
   /// Tries a connection without changing anything; returns null on success.
-  Future<String?> testConnection(Settings s, String secret) async {
-    final client = _clientFactory(_connectionFor(s, secret));
+  Future<String?> testConnection(Settings s, String secret, {String? certPassword}) async {
+    final client = _clientFactory(_connectionFor(s, secret, certPassword ?? _certPassword));
     try {
       final experiments = await client.searchExperiments();
       final wanted = s.experimentNames.toSet();

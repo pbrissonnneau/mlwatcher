@@ -1,3 +1,4 @@
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -28,6 +29,8 @@ class _SettingsViewState extends State<SettingsView> {
   late final _url = TextEditingController(text: _initial.serverUrl);
   late final _username = TextEditingController(text: _initial.username);
   late final _secret = TextEditingController(text: widget.service.secret);
+  late final _certPath = TextEditingController(text: _initial.clientCertificatePath);
+  late final _certPassword = TextEditingController(text: widget.service.certPassword);
   late final _experiments = TextEditingController(text: _initial.experimentNames.join('\n'));
   late final _user = TextEditingController(text: _initial.userFilter);
   late final _epochMetric = TextEditingController(text: _initial.epochMetric);
@@ -49,6 +52,8 @@ class _SettingsViewState extends State<SettingsView> {
   @override
   void initState() {
     super.initState();
+    // The password field only shows once a certificate is chosen.
+    _certPath.addListener(() => setState(() {}));
     if (Autostart.isSupported) {
       Autostart.isEnabled().then((v) {
         if (mounted) setState(() => _autostart = _autostartInitial = v);
@@ -58,7 +63,18 @@ class _SettingsViewState extends State<SettingsView> {
 
   @override
   void dispose() {
-    for (final c in [_url, _username, _secret, _experiments, _user, _epochMetric, _totalParam, _stale]) {
+    for (final c in [
+      _url,
+      _username,
+      _secret,
+      _certPath,
+      _certPassword,
+      _experiments,
+      _user,
+      _epochMetric,
+      _totalParam,
+      _stale,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -71,6 +87,7 @@ class _SettingsViewState extends State<SettingsView> {
       authMode: _auth,
       username: _username.text.trim(),
       allowUntrustedCertificate: _untrusted,
+      clientCertificatePath: _certPath.text.trim(),
       experimentNames: [
         for (final line in _experiments.text.split(RegExp(r'[\n,]')))
           if (line.trim().isNotEmpty) line.trim(),
@@ -88,13 +105,23 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   String get _secretValue => _auth == AuthMode.none ? '' : _secret.text;
+  String get _certPasswordValue => _certPath.text.trim().isEmpty ? '' : _certPassword.text;
+
+  Future<void> _pickCertificate() async {
+    final file = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'Certificates', extensions: ['p12', 'pfx', 'pem']),
+      ],
+    );
+    if (file != null) _certPath.text = file.path;
+  }
 
   Future<void> _test() async {
     setState(() {
       _testing = true;
       _testResult = null;
     });
-    final error = await widget.service.testConnection(_collect(), _secretValue);
+    final error = await widget.service.testConnection(_collect(), _secretValue, certPassword: _certPasswordValue);
     if (!mounted) return;
     setState(() {
       _testing = false;
@@ -104,7 +131,7 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   Future<void> _save() async {
-    await widget.service.applySettings(_collect(), _secretValue);
+    await widget.service.applySettings(_collect(), _secretValue, certPassword: _certPasswordValue);
     final autostart = _autostart;
     if (autostart != null && autostart != _autostartInitial) {
       try {
@@ -184,6 +211,33 @@ class _SettingsViewState extends State<SettingsView> {
                   (v) => setState(() => _untrusted = v),
                   subtitle: 'Only for this server, HTTPS only',
                 ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _field(
+                        _certPath,
+                        'Client certificate (optional)',
+                        helper: 'Only if the server asks for one: .p12, .pfx, or .pem with its key',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: OutlinedButton(onPressed: _pickCertificate, child: const Text('Browse…')),
+                    ),
+                  ],
+                ),
+                if (_certPath.text.trim().isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  _field(
+                    _certPassword,
+                    'Certificate password',
+                    obscure: true,
+                    helper: 'Stored encrypted for your user account. Empty if the file has none.',
+                  ),
+                ],
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     OutlinedButton.icon(

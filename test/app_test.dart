@@ -103,10 +103,21 @@ void main() {
 
   test('settings and secret are saved', () async {
     final s = await service();
-    await s.applySettings(s.settings.copyWith(userFilter: 'bob'), 's3cret');
+    await s.applySettings(
+      s.settings.copyWith(userFilter: 'bob', clientCertificatePath: '/certs/me.p12'),
+      's3cret',
+      certPassword: 'p12pass',
+    );
     final again = await service(settings: await JsonStore(dir).loadSettings());
     expect(again.settings.userFilter, 'bob');
     expect(again.secret, 's3cret');
+    expect(again.certPassword, 'p12pass');
+    expect(again.connection.clientCertificatePath, '/certs/me.p12');
+    expect(again.connection.clientCertificatePassword, 'p12pass');
+
+    // Without a certificate, its password is not used.
+    await again.applySettings(again.settings.copyWith(clientCertificatePath: ''), 's3cret');
+    expect(again.connection.clientCertificatePassword, isEmpty);
     s.dispose();
     again.dispose();
   });

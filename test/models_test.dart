@@ -164,6 +164,7 @@ void main() {
       serverUrl: 'http://m',
       authMode: AuthMode.token,
       experimentNames: ['a', 'b'],
+      clientCertificatePath: '/home/me/me.p12',
       staleMinutes: 12,
       opacityPercent: 70,
       alwaysOnTop: false,

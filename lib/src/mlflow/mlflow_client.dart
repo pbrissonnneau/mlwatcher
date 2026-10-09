@@ -17,6 +17,8 @@ class MlflowConnection {
     this.username = '',
     this.secret = '',
     this.allowUntrustedCertificate = false,
+    this.clientCertificatePath = '',
+    this.clientCertificatePassword = '',
   });
 
   /// e.g. `http://mlflow.lan:5000` (any trailing slash is ignored).
@@ -29,6 +31,11 @@ class MlflowConnection {
 
   /// Accept a self-signed / private-CA certificate for this host only.
   final bool allowUntrustedCertificate;
+
+  /// Client certificate for mutual TLS (`.p12` / `.pfx`, or `.pem` holding the
+  /// certificate and its key); empty means none.
+  final String clientCertificatePath;
+  final String clientCertificatePassword;
 
   String get normalizedBaseUrl => baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
 
@@ -57,20 +64,50 @@ class MlflowException implements Exception {
 
 /// Minimal client for the MLflow REST API (`/api/2.0/mlflow/...`).
 class MlflowClient {
-  MlflowClient(this.connection, {http.Client? httpClient, this.timeout = const Duration(seconds: 8)})
-    : _http = httpClient ?? _defaultClient(connection);
+  MlflowClient(this.connection, {http.Client? httpClient, this.timeout = const Duration(seconds: 8)}) {
+    try {
+      _http = httpClient ?? _defaultClient(connection);
+    } on MlflowException catch (e) {
+      // Reported by every request, like a connection error.
+      _setupError = e;
+      _http = http.Client();
+    }
+  }
 
   final MlflowConnection connection;
   final Duration timeout;
-  final http.Client _http;
+  late final http.Client _http;
+  MlflowException? _setupError;
 
   static http.Client _defaultClient(MlflowConnection c) {
-    final io = HttpClient()..connectionTimeout = const Duration(seconds: 5);
+    final io = HttpClient(context: _securityContext(c))..connectionTimeout = const Duration(seconds: 5);
     if (c.allowUntrustedCertificate) {
       final host = Uri.tryParse(c.normalizedBaseUrl)?.host;
       io.badCertificateCallback = (cert, h, port) => h == host;
     }
     return IOClient(io);
+  }
+
+  /// The system's trusted roots, plus the client certificate if any.
+  static SecurityContext? _securityContext(MlflowConnection c) {
+    final path = c.clientCertificatePath.trim();
+    if (path.isEmpty) return null;
+    final List<int> bytes;
+    try {
+      bytes = File(path).readAsBytesSync();
+    } on FileSystemException {
+      throw MlflowException('Client certificate: cannot read $path');
+    }
+    final password = c.clientCertificatePassword.isEmpty ? null : c.clientCertificatePassword;
+    try {
+      return SecurityContext(withTrustedRoots: true)
+        ..useCertificateChainBytes(bytes, password: password)
+        ..usePrivateKeyBytes(bytes, password: password);
+    } on TlsException {
+      throw const MlflowException(
+        'Client certificate: wrong password, or not a .p12 / .pfx / .pem file with its private key',
+      );
+    }
   }
 
   /// All active experiments.
@@ -165,6 +202,7 @@ class MlflowClient {
       _send(() => _http.get(_uri(endpoint, query), headers: connection.authHeaders));
 
   Future<Map<String, Object?>> _send(Future<http.Response> Function() request) async {
+    if (_setupError case final e?) throw e;
     final http.Response res;
     try {
       res = await request().timeout(timeout);

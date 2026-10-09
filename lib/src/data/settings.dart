@@ -10,6 +10,7 @@ class Settings {
     this.authMode = AuthMode.none,
     this.username = '',
     this.allowUntrustedCertificate = false,
+    this.clientCertificatePath = '',
     this.experimentNames = const [],
     this.userFilter = '',
     this.epochMetric = 'epoch',
@@ -28,6 +29,10 @@ class Settings {
   final AuthMode authMode;
   final String username;
   final bool allowUntrustedCertificate;
+
+  /// Client certificate (`.p12` / `.pfx`, or `.pem` with the key) for servers
+  /// requiring mutual TLS; empty means none. Its password is stored separately.
+  final String clientCertificatePath;
 
   /// Experiments to watch by exact name; empty means all experiments.
   final List<String> experimentNames;
@@ -59,6 +64,7 @@ class Settings {
     AuthMode? authMode,
     String? username,
     bool? allowUntrustedCertificate,
+    String? clientCertificatePath,
     List<String>? experimentNames,
     String? userFilter,
     String? epochMetric,
@@ -76,6 +82,7 @@ class Settings {
     authMode: authMode ?? this.authMode,
     username: username ?? this.username,
     allowUntrustedCertificate: allowUntrustedCertificate ?? this.allowUntrustedCertificate,
+    clientCertificatePath: clientCertificatePath ?? this.clientCertificatePath,
     experimentNames: experimentNames ?? this.experimentNames,
     userFilter: userFilter ?? this.userFilter,
     epochMetric: epochMetric ?? this.epochMetric,
@@ -96,6 +103,7 @@ class Settings {
       authMode != old.authMode ||
       username != old.username ||
       allowUntrustedCertificate != old.allowUntrustedCertificate ||
+      clientCertificatePath.trim() != old.clientCertificatePath.trim() ||
       experimentNames.join('\n') != old.experimentNames.join('\n') ||
       userFilter.trim() != old.userFilter.trim() ||
       epochMetric != old.epochMetric ||
@@ -106,6 +114,7 @@ class Settings {
     'authMode': authMode.name,
     'username': username,
     'allowUntrustedCertificate': allowUntrustedCertificate,
+    'clientCertificatePath': clientCertificatePath,
     'experimentNames': experimentNames,
     'userFilter': userFilter,
     'epochMetric': epochMetric,
@@ -138,6 +147,7 @@ class Settings {
       authMode: AuthMode.values.asNameMap()[j['authMode']] ?? d.authMode,
       username: read('username', d.username),
       allowUntrustedCertificate: read('allowUntrustedCertificate', d.allowUntrustedCertificate),
+      clientCertificatePath: read('clientCertificatePath', d.clientCertificatePath),
       experimentNames: (j['experimentNames'] is List)
           ? (j['experimentNames'] as List).whereType<String>().toList()
           : d.experimentNames,

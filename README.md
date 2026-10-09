@@ -31,6 +31,7 @@ shows your runs at a glance. Built with Flutter.
 | Server URL | – | e.g. `http://mlflow.lan:5000` |
 | Authentication | none | username + password (HTTP basic) or token (bearer). The secret is encrypted for your Windows user (DPAPI); on Linux it is a file only you can read. |
 | Accept a self-signed certificate | off | for HTTPS servers with a private certificate (that host only); see [HTTPS certificates](#https-certificates) |
+| Client certificate | none | for servers that require one (mutual TLS): a `.p12` / `.pfx` file, or a `.pem` holding the certificate and its key, plus its password (encrypted like the secret above); see [Client certificates](#client-certificates) |
 | Experiments | all | exact names, one per line |
 | Only runs of user | everyone | matches the `mlflow.user` tag |
 | Epoch metric | `epoch` | metric holding the current epoch |
@@ -106,8 +107,34 @@ intercept the network traffic could impersonate the server (and receive your pas
 
 ### Client certificates
 
-Servers that require a **client certificate** (mutual TLS) are not supported: mlwatcher authenticates with a
-password (HTTP basic) or a token (bearer) only.
+Some servers also ask **you** for a certificate (mutual TLS): without a valid one, the connection is refused before
+any login, and the overlay shows `TLS error: …`. The certificate is a file you get from your administrator, usually a
+`.p12` or `.pfx` (certificate + private key, protected by a password).
+
+1. Copy the file somewhere only you can read, for example in your user folder.
+2. *Settings* → **Client certificate** → *Browse…* and pick the file (`.p12`, `.pfx`, or a `.pem` holding both the
+   certificate and its private key).
+3. Type its **Certificate password** (leave it empty if the file has none). It is stored encrypted for your user
+   account, like the MLflow password.
+4. **Test connection**, then *Save*.
+
+mlwatcher reads the file when it connects: keep it where it is (if you move it, choose it again). Messages you may
+see:
+
+- `Client certificate: cannot read …`: the file was moved, renamed or is not readable.
+- `Client certificate: wrong password, or not a .p12 / .pfx / .pem file with its private key`: check the password,
+  and that the file contains the private key (a `.crt` / `.cer` alone is not enough).
+- `TLS error: …` or `Authentication failed (HTTP 403)` with a certificate set: the server does not accept this
+  certificate (expired, or not issued by the authority it expects). Ask your administrator.
+
+**Certificate only in Windows** (in `certmgr.msc` → *Personal* → *Certificates*, not as a file): mlwatcher cannot use
+it from there. Export it to a file: right-click it → *All Tasks* → *Export…* → **Yes, export the private key** →
+*Personal Information Exchange (.PFX)* → choose a password → save, then pick that file in mlwatcher. If *export the
+private key* is greyed out (smart card, or a key marked non-exportable), the certificate cannot be used by
+mlwatcher.
+
+The server certificate is still checked as described above: a server using a private authority also needs option 1
+or option 2.
 
 ## Network
 
@@ -169,7 +196,7 @@ windows/runner, linux/runner   frameless tool window (no taskbar entry), shown b
 - One process, one window: the window is the overlay, and temporarily becomes the settings form.
 - A second launch only brings the running overlay to the front (OS file lock + request file, no sockets).
 - Data lives in `%APPDATA%\mlwatcher\mlwatcher\` (Windows) or `~/.local/share/app.mlwatcher.mlwatcher/` (Linux):
-  `settings.json`, `state.json`, and the encrypted secret.
+  `settings.json`, `state.json`, and the encrypted secrets (MLflow password or token, client certificate password).
 
 ## Platform notes
 

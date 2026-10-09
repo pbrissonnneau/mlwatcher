@@ -6,17 +6,19 @@ import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as p;
 
-/// Stores the MLflow password / token.
+/// Stores a secret: the MLflow password / token, or the client certificate's
+/// password (one store per [name]).
 ///
 /// * Windows: encrypted with DPAPI for the current Windows user
 ///   (`CryptProtectData`); the file is useless on another account or machine.
 /// * Linux: plain file readable only by the user (mode 600).
 class SecretStore {
-  SecretStore(this.dir);
+  SecretStore(this.dir, {this.name = 'secret'});
 
   final Directory dir;
+  final String name;
 
-  File get _file => File(p.join(dir.path, Platform.isWindows ? 'secret.dpapi' : 'secret'));
+  File get _file => File(p.join(dir.path, Platform.isWindows ? '$name.dpapi' : name));
 
   Future<String> read() async {
     try {
