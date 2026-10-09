@@ -30,7 +30,7 @@ shows your runs at a glance. Built with Flutter.
 |---|---|---|
 | Server URL | – | e.g. `http://mlflow.lan:5000` |
 | Authentication | none | username + password (HTTP basic) or token (bearer). The secret is encrypted for your Windows user (DPAPI); on Linux it is a file only you can read. |
-| Accept a self-signed certificate | off | for HTTPS servers with a private certificate (that host only) |
+| Accept a self-signed certificate | off | for HTTPS servers with a private certificate (that host only); see [HTTPS certificates](#https-certificates) |
 | Experiments | all | exact names, one per line |
 | Only runs of user | everyone | matches the `mlflow.user` tag |
 | Epoch metric | `epoch` | metric holding the current epoch |
@@ -40,6 +40,74 @@ shows your runs at a glance. Built with Flutter.
 | Grow automatically with the runs | off | the overlay always shrinks to fit fewer runs; with this it also grows, up to the screen height |
 | Notifications | on | on failure/kill, on finish |
 | Start when I log in | off | Windows: `HKCU\…\Run`; enable again if you move the folder |
+
+## HTTPS certificates
+
+For an `https://` server, mlwatcher checks the server certificate like a browser does. It has **no certificate file
+or folder of its own**: it trusts the certificate authorities of the operating system.
+
+- Certificate from a public authority (Let's Encrypt, DigiCert, …): nothing to do.
+- Certificate from a **private (company) authority**, or **self-signed**: install the certificate in the system
+  (option 1, recommended), or turn on *Accept a self-signed certificate* (option 2).
+
+When the certificate is not trusted, the overlay shows `TLS error: …` (also in *Settings → Test connection*).
+
+### Option 1 – install the certificate in the system (recommended)
+
+**Which file.** For a private authority, the authority's **root certificate**; for a self-signed server, the server
+certificate itself. A `.crt`, `.cer` or `.pem` file, never the private key (`.key`). Ask your server administrator,
+or export it from a browser: open the MLflow URL, click the padlock, view the certificate, select the **top** of the
+chain and export it. For a self-signed server, `openssl s_client -connect mlflow.lan:443 -showcerts` also works:
+copy the `-----BEGIN CERTIFICATE-----` … `-----END CERTIFICATE-----` block into a `.crt` file (servers usually do
+not send their root certificate, so for a private authority use the browser or ask the administrator).
+
+**Windows** (no admin rights needed):
+
+1. Double-click the certificate file, then **Install Certificate…**
+2. Store location: **Current User**, then *Next*.
+3. **Place all certificates in the following store** → *Browse…* → **Trusted Root Certification Authorities** →
+   *OK* → *Next* → *Finish*.
+4. Windows warns that it cannot confirm the origin of the certificate: check the thumbprint with your administrator
+   if in doubt, then **Yes**.
+5. **Restart mlwatcher** (right-click the tray icon → *Quit mlwatcher*, then start it again): certificates are read
+   at start-up.
+
+The same from a command prompt: `certutil -user -addstore Root C:\path\to\company-ca.crt`
+(PowerShell: `Import-Certificate -FilePath C:\path\to\company-ca.crt -CertStoreLocation Cert:\CurrentUser\Root`).
+To check or remove it: run `certmgr.msc` → *Trusted Root Certification Authorities* → *Certificates*.
+
+Good to know:
+
+- mlwatcher reads the *Trusted Root*, *Intermediate*, *Enterprise Trust* and *Personal* stores of both the current
+  user and the computer, so certificates deployed by your company (group policy) already work.
+- If the server does not send its intermediate certificate, also install that one, in **Intermediate Certification
+  Authorities**.
+- Expired certificates are ignored.
+
+**Linux:**
+
+```sh
+# Debian, Ubuntu (the file must be PEM and end in .crt)
+sudo cp company-ca.crt /usr/local/share/ca-certificates/
+sudo update-ca-certificates
+
+# Fedora, RHEL
+sudo cp company-ca.crt /etc/pki/ca-trust/source/anchors/
+sudo update-ca-trust
+```
+
+Then restart mlwatcher.
+
+### Option 2 – *Accept a self-signed certificate*
+
+In *Settings*, tick **Accept a self-signed certificate**. mlwatcher then accepts whatever certificate the configured
+server presents, without checking it: only for that host name, and only over HTTPS. It is quicker, but anyone able to
+intercept the network traffic could impersonate the server (and receive your password or token). Prefer option 1.
+
+### Client certificates
+
+Servers that require a **client certificate** (mutual TLS) are not supported: mlwatcher authenticates with a
+password (HTTP basic) or a token (bearer) only.
 
 ## Network
 
